@@ -6,29 +6,81 @@ bibliography: bibtex.bib
 date: "`r Sys.Date()`"
 output:
  pdf_document:
+    extra_dependencies: ["empheq", "etoolbox"]
  keep_tex: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, comment = "", warning = FALSE, message = FALSE)
+# Load required packages
+library(tidyverse)
+library(rbioacc)
+library(kableExtra)
 ```
 
-## R Markdown
+### Abstract
+We provide here a toy example based on the use of a simple one-compartment toxicokinetic model to describe the bioaccumulation of chemical substances within the whole body of living organisms. From a simple ODE model, we will illustrate : (P1) how to simulate both accumulation and depuration phases under constant exposure and to compare model outputs to observed data; (P2) how to fit such a model on data without using any prior information on the model (Frequentist point of view); (3) how to benefit of prior information in combination with knowledge in data to update the calibration results (Bayesian point of view).
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# Introduction
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Perform calculations under the three perspectives as described within the main document
 
-```{r cars}
-summary(cars)
+# Case study
+Based on [@Ashauer2010]. Data set on Malathion
+
+```{r, fig.cap="Raw data vizualisation. the vertical dashed line stands for the end of the accumulation phase ($t_c = 1$ day. Exposure concentration equals 1.485 picomol/ml."}
+# Load the data set
+df <- read.table("data.txt", header = TRUE, sep = "")
+# Plot the raw data
+ggplot(data = df, aes(x = time, y = conc)) +
+  geom_point() +
+  xlab("Time (hours)") +
+  ylab("Internal measured concentration (picomol/g wet weight)") +
+  geom_vline(xintercept = 1, linetype="dashed")
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+A toxicokinetic (TK) model simply describing bioaccumulation of chemical substances within the whole body of living organisms is based on a set of two differential equations [@Charles2021]:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+\begin{subequations}
+  \begin{empheq}[left=\empheqlbrace]{align}
+    \frac{dC}{dt}(t) &= k_u \times C_w - k_e \times C(t) \quad \forall \, 0 \leq t \leq t_c \\
+    \frac{dC}{dt}(t) &= - k_e \times C(t) \quad  \forall \, t > t_c 
+  \end{empheq}
+\end{subequations}
+
+where $t_c$ stands for the duration of the accumulation phase (namely the end of the exposure period, before organisms are transferred into a clean medium). Quantity $C_w$ stands for the exposure concentration in water, while variable $C(t)$ corresponds to the internal concentration within the whole body of organisms over time $t$. Parameters $k_u$ and $k_e$ are the uptake and the elimination rates, respectively.
+
+# Perspective 1
+
+# Perspective 2
+
+# Perspective 3
+
+Fit the one compartment model under a Bayesian framework, with the R-package `rbioacc` [@Ratier2021]. The same calculation can be easily reproduced on-line with the MOSAIC web platform and the `bioacc` module: \url{https://mosaic.univ-lyon1.fr/bioacc}
+
+```{r}
+# Prepare the data to be use in the `rbioacc` package
+mdf <- modelData(df, time_accumulation = 1, )
+# fit the TK model built by default from the data
+fit <- fitTK(mdf, refresh = 0)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+# Display the corresponding equation of the model
+equations(fit, df)
+# Check accordance with equations
+```
+
+
+
+# References
+\bibliographystyle{apacite}
+\bibliography{bibtex} 
+
+# Appendix: Raw data
+```{r}
+df <- read.table("data.txt", header = TRUE, sep = "")
+kable(head(df), format="latex")
+```
+
