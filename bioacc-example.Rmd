@@ -26,9 +26,9 @@ We provide here a toy example based on the use of a simple one-compartment toxic
 Perform calculations under the three perspectives as described within the main document
 
 # Case study
-Based on [@Ashauer2010]. Data set on Malathion
+Based on [@Ashauer2010]. Data set on *Gammarus pulex* exposed to Malathion.
 
-```{r, fig.cap="Raw data vizualisation. the vertical dashed line stands for the end of the accumulation phase ($t_c = 1$ day. Exposure concentration equals 1.485 picomol/ml."}
+```{r, echo=FALSE, fig.cap="Raw data vizualisation (black dots). the vertical dashed line stands for the end of the accumulation phase ($t_c = 1$ day. Exposure concentration equals 1.485 picomol/ml."}
 # Load the data set
 df <- read.table("data.txt", header = TRUE, sep = "")
 # Plot the raw data
@@ -40,7 +40,7 @@ ggplot(data = df, aes(x = time, y = conc)) +
 ```
 
 
-A toxicokinetic (TK) model simply describing bioaccumulation of chemical substances within the whole body of living organisms is based on a set of two differential equations [@Charles2021]:
+A toxicokinetic (TK) model simply describing bioaccumulation of chemical substances within the whole body of living organisms is based on a set of two differential equations standing for the deterministic part [@Charles2021]:
 
 \begin{subequations}
   \begin{empheq}[left=\empheqlbrace]{align}
@@ -51,13 +51,29 @@ A toxicokinetic (TK) model simply describing bioaccumulation of chemical substan
 
 where $t_c$ stands for the duration of the accumulation phase (namely the end of the exposure period, before organisms are transferred into a clean medium). Quantity $C_w$ stands for the exposure concentration in water, while variable $C(t)$ corresponds to the internal concentration within the whole body of organisms over time $t$. Parameters $k_u$ and $k_e$ are the uptake and the elimination rates, respectively.
 
-# Perspective 1
+Given that state variables are concentrations, an appropriate stochastic part to describe the variability of the data around the mean tendency is the Gaussian distribution, so that:
+
+\begin{equation}
+  C_{obs}(t_i) \simeq \mathcal{N}(C(t_i), \sigma)
+\end{equation}
+
+where $C_{obs}(t_i)$ are the measured internal concentrations at time point $t_i$, $\forall \, i \in 1,n$, with $n$ the total number of time points. Parameter $\sigma$ stands for the standard deviation of the normal distribution.
+
+# Perspective 1 - 
+
+Under perspective 1, the idea is to simulate under the model equations (1) and to compare with observed data. In this perspective, we used the $k_u$ and $k_e$ parameter estimates as provided in Table 1 of [@Ashauer2010]. However, the estimation of parameter $\sigma$ is missing. In addition, two options can be considered, accounting for the uncertainty or not.
+
+### Persp.1 - option 1
+
+### Persp.1 - option 2
 
 # Perspective 2
 
 # Perspective 3
 
-Fit the one compartment model under a Bayesian framework, with the R-package `rbioacc` [@Ratier2021]. The same calculation can be easily reproduced on-line with the MOSAIC web platform and the `bioacc` module: \url{https://mosaic.univ-lyon1.fr/bioacc}
+In the section, we fit the one compartment model (equations (1)) under a Bayesian framework with the R-package `rbioacc` [@Ratier2021]. The same calculation can be easily reproduced on-line with the MOSAIC web platform and its `bioacc` module: \url{https://mosaic.univ-lyon1.fr/bioacc}.
+
+## Model fitting
 
 ```{r}
 # Prepare the data to be use in the `rbioacc` package
@@ -66,21 +82,87 @@ mdf <- modelData(df, time_accumulation = 1, )
 fit <- fitTK(mdf, refresh = 0)
 ```
 
-```{r}
-# Display the corresponding equation of the model
+## Model equations
+
+```{r, results='hide'}
+# Below is the code line allowing to get
+# the used model equations
 equations(fit, df)
-# Check accordance with equations
 ```
 
+## Fitting results 
+
+```{r}
+# Get parameter estimates
+# medians and 95% credible intervals
+quantile_table(fit)
+```
+
+```{r, fig.cap="Fitting plot with black dots representing the observed data, the solid orange line the median predictive model and the grey area the 95% uncertainty band including the uncertainty on the model parameter estimates as well as the stochastic part of the model."}
+# Fitting plot
+plot(fit)
+```
+
+## Bioaccumulation metric
+
+```{r}
+# Calculation of the posterior probability distribution
+# of the kinetic bioconcentration factor
+bm <- bioacc_metric(fit)
+# Display median and 95% credible interval of the BCF_k
+quantile(bm$BCFk, probs = c(0.025, 0.5, 0.975))
+```
+
+The 95\% elimination time can also be easily calulated.
+
+```{r}
+signif(t95(fit), digits = 3)
+```
+## Goodness-of-fit criteria
+
+```{r}
+# Posterior Predictive Check (PPC)
+# The expectation is to get ~95% of data
+# within their prediction interval
+ppc(fit)
+```
+
+```{r}
+# Compare priors and posteriors
+plot_PriorPost(fit)
+```
+
+```{r}
+# Check for correlations between parameters
+corrPlot(fit)
+```
+
+```{r}
+# Check  for non-signigicantly different traces
+# of the four MCMC chains run in paralell
+psrf(fit)
+# Look at the traces of the 4 MCMC chains
+mcmcTraces(fit)
+```
 
 
 # References
 \bibliographystyle{apacite}
-\bibliography{bibtex} 
+\bibliography{bibtex}
+<div id="refs"></div>
 
-# Appendix: Raw data
+\newpage
+# APPENDIX 
+
+# Table of raw data
+
 ```{r}
 df <- read.table("data.txt", header = TRUE, sep = "")
-kable(head(df), format="latex")
+kable(df[1:25,], format="latex")
 ```
+
+# One more thing
+
+This will be Appendix B.
+
 
