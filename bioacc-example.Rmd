@@ -13,9 +13,15 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, comment = "", warning = FALSE, message = FALSE)
 # Load required packages
-library(tidyverse)
-library(rbioacc)
-library(kableExtra)
+library(tidyverse) # encompass several useful packages to:
+# data import, tidying, manipulation, visualisation, and programming
+library(rbioacc) # fit and predict TK models
+library(kableExtra) # to build common complex tables
+# and manipulate table styles
+library(gridExtra) # functions to work with "grid" graphics,
+# notably to arrange multiple grid-based plots on a page,
+# and draw tables.
+library(truncnorm) # use of truncated Normal distributions
 ```
 
 ### Abstract
@@ -24,6 +30,8 @@ We provide here a toy example based on the use of a simple one-compartment toxic
 # Introduction
 
 Perform calculations under the three perspectives as described within the main document
+
+*** to be developed ***
 
 # Case study
 Based on [@Ashauer2010]. Data set on *Gammarus pulex* exposed to Malathion.
@@ -38,7 +46,6 @@ ggplot(data = df, aes(x = time, y = conc)) +
   ylab("Internal measured concentration (picomol/g wet weight)") +
   geom_vline(xintercept = 1, linetype="dashed")
 ```
-
 
 A toxicokinetic (TK) model simply describing bioaccumulation of chemical substances within the whole body of living organisms is based on a set of two differential equations standing for the deterministic part [@Charles2021]:
 
@@ -61,11 +68,133 @@ where $C_{obs}(t_i)$ are the measured internal concentrations at time point $t_i
 
 # Perspective 1 - 
 
-Under perspective 1, the idea is to simulate under the model equations (1) and to compare with observed data. In this perspective, we used the $k_u$ and $k_e$ parameter estimates as provided in Table 1 of [@Ashauer2010]. However, the estimation of parameter $\sigma$ is missing. In addition, two options can be considered, accounting for the uncertainty or not.
+Under perspective 1, the idea is to simulate under the model equations (1) and to compare with observed data. In this perspective, we can use the $k_u$ and $k_e$ parameter estimates as provided in Table 1 of [@Ashauer2010]. However, we need to choose one of the two estimates: the one from the Marquardt fit, or the one from the MCMC fit. Note that these estimates are provide as aggregated values (mean $\pm$ standard deviation, and that the estimation of parameter $\sigma$ (equation (2)) is missing.
 
-### Persp.1 - option 1
+Then, two simulation options can be considered: option 1, using only mean values for the simulations; option 2: accounting for the uncertainty. This latter raises the question of the probability distribution to consider. Because estimates are provided as means and standard deviations, this invites us to consider a normal distribution for both $k_u$ and $k_e$ parameters.
 
-### Persp.1 - option 2
+Below is a summary table with estimates from [@Ashauer2010] corresponding to the raw data we are dealing with in this document:
+
+```{r}
+tab1 <- read.table("table1.txt", header = TRUE)
+kable(tab1)
+```
+
+## Simulated model
+
+Because the exposure concentration is here considered as constant, equations (1) can be analytically integrated as follows:
+
+\begin{subequations}
+  \begin{empheq}[left=\empheqlbrace]{align}
+    C(t) &= \frac{k_u}{k_e} C_w \left(1- e^{- k_e t}\right) \quad \forall \, 0 \leq t \leq t_c\\
+    C(t) &= \frac{k_u}{k_e} C_w \left(e^{k_e (t_c - t)}- e^{- k_et}\right) \quad  \forall \, t > t_c 
+  \end{empheq}
+\end{subequations}
+
+```{r}
+# Create a function to simulation bioaccumulation
+# along both accumulation and depuration phases
+bioacc <- function(parameters, expw, tc, tmax){
+  tacc <- seq(0, tc, length.out = 100)
+  Cacc <- parameters[1]*expw*(1 - exp(-parameters[2]*tacc))/parameters[2]
+  tdep <- seq(tc, tmax, length.out = 200)
+  Cdep <- parameters[1]*expw*(exp(parameters[2]*(tc - tdep)) - exp(-parameters[2]*tdep))/parameters[2]
+  result <- data.frame(time = c(tacc, tdep),
+                       conc = c(Cacc, Cdep))
+  return(result)
+}
+```
+
+## Persp.1 - option 1
+
+```{r}
+# Assign input parameter values
+# Use the mean of Marquardt and MCMC fits
+ku.mean <- mean(tab1$ku_mean) 
+ke.mean <- mean(tab1$ke_mean)
+parameters <- c(ku.mean, ke.mean)
+expw <- unique(df$expw)
+tc <- 1 # duration of the accumulation phase
+tmax <- max(df$time) # final time of the experiment
+```
+
+```{r}
+# Launch simulations
+simu.mean <- bioacc(parameters, expw, tc, tmax)
+```
+
+```{r, fig.cap="Simulation of a one-comparment toxicokinetic model with parameters values got from medians in Table 1 of [@Ashauer2010] (solid orange line). Black dots are observed data."}
+# Plot simulations
+ymax <- max(unique(df$conc)) # maximal observed concentrations
+ggplot(simu.mean, aes(time, conc)) +
+  geom_line(col = "orange", size = 1.5) +
+  xlab("Time (hours)") +
+  ylab("Internal predicted concentrations") +
+  geom_vline(xintercept = 1, linetype="dashed") +
+  coord_cartesian(xlim = c(0, tmax), ylim = c(0, ymax)) +
+  # Add observed data
+  geom_point(data = df, aes(time, conc))
+```
+### Comparison between data and simulations
+
+
+## Persp.1 - option 2
+
+Given that $k_u$ and $k_e$ parameters were provided with their standard deviations, it is tempting to add uncertainties around the previous mean predicted curve. However, no information is available on parameter $\sigma$ to appropriately characterize the normal distribution of the stochastic part of the model (equation (2)). Without additional information, all parameters will be assumed to be normally distributed. Note also that, in doing as such, we do account for any correlation between model parameters.
+
+As $\sigma$ is expressed in the same unit as the observed concentrations, in first intention, we could assume that $\sigma$ follows a normal distribution of mean and standard deviation equal to the mean and the standard deviation of the observations. Nevertheless, an alternative that would be less computing demanding, could be to fix $\sigma=0.1$ (or any other arbitrary value).
+
+### Pers 1 - option 2 - ficed $\sigma$ 
+
+```{r}
+# Built normal distributions for model parameters
+niter <- 1000 # sampling size in parameter distributions
+ku.sd <- mean(tab1$ku_sd) # ku standard deviation
+ku <- rnorm(niter, ku.mean, ku.sd) # ku distribution
+ke.sd <- mean(tab1$ke_sd) # ke standard deviation
+ke <- rnorm(niter, ke.mean, ke.sd) # ke distribution
+sigma <- 0.1 # 50% of the observed sd
+# Plot the simulated normal distributions
+# for the model parameters ku and ke
+g1 <- ggplot(as.data.frame(ku), aes(ku)) +
+  geom_histogram(binwidth = 1)
+g2 <- ggplot(as.data.frame(ke), aes(ke)) +
+  geom_histogram(binwidth = 0.01)
+grid.arrange(g1, g2, ncol = 2)
+```
+
+```{r}
+# Simulation of internal concentrations
+# considering the above probability distributions
+# and a fixed sigma value
+pred <- c()
+for(k in 1:niter){
+  tmp.ku <- sample(ku, 1)
+  tmp.ke <- sample(ke, 1)
+  tmp.theo <- bioacc(parameters = c(tmp.ku, tmp.ke),
+                     expw = expw, tc = 1, tmax = tmax)
+  alea <- rnorm(n = 300, 0, sigma)
+  tmp.pred <- tmp.theo$conc + alea
+  pred <- rbind(pred, c(tmp.ku, tmp.ke, tmp.pred))
+}
+colnames(pred) <- c("ku", "ke", tmp.theo$time)
+Qpred <- t(apply(pred[,3:302], MARGIN = 2,
+               FUN = function(x) quantile(x, probs = c(0.025, 0.5, 0.975))))
+rownames(Qpred) <- NULL
+Qpred <- as.data.frame(Qpred)
+Qpred$time <- tmp.theo$time
+colnames(Qpred) <- c("Lower", "median", "Upper", "time")
+```
+
+```{r}
+ggplot(data = Qpred, aes(x = time, y = median)) +
+  geom_ribbon(aes(ymin = Lower, ymax = Upper),
+              col = "orange", linetype = "dashed",
+              fill = "lightgrey") +
+  geom_line(col = "orange", size = 1.25)
+```
+
+
+
 
 # Perspective 2
 
