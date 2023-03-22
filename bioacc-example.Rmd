@@ -11,7 +11,9 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, comment = "", warning = FALSE, message = FALSE)
+rm(list = ls())
+library(knitr)
+opts_chunk$set(echo = TRUE, comment = "", warning = FALSE, message = FALSE)
 # Load required packages
 library(tidyverse) # encompass several useful packages to:
 # data import, tidying, manipulation, visualisation, and programming
@@ -22,6 +24,8 @@ library(gridExtra) # functions to work with "grid" graphics,
 # notably to arrange multiple grid-based plots on a page,
 # and draw tables.
 library(truncnorm) # use of truncated Normal distributions
+# some easy-to-use functions for creating and customizing 'ggplot2':
+library(ggpubr) 
 ```
 
 ### Abstract
@@ -29,16 +33,25 @@ We provide here a toy example based on the use of a simple one-compartment toxic
 
 # Introduction
 
-Perform calculations under the three perspectives as described within the main document
-
-*** to be developed ***
+Perform calculations under the three perspectives as described within the main document *** to be developed ***
 
 # Case study
-Based on [@Ashauer2010]. Data set on *Gammarus pulex* exposed to Malathion.
+Based on [@Ashauer2010]. Data set on *Gammarus pulex* exposed to Malathion. *** to be developed ***
 
-```{r, echo=FALSE, fig.cap="Raw data vizualisation (black dots). the vertical dashed line stands for the end of the accumulation phase ($t_c = 1$ day. Exposure concentration equals 1.485 picomol/ml."}
+```{r}
 # Load the data set
 df <- read.table("data.txt", header = TRUE, sep = "")
+```
+
+```{r}
+# Summarize the data set
+# End of the accumulation phase
+tc <- 1 
+# Number of time points
+ntp <- length(unique(df$time))
+```
+
+```{r, echo=FALSE, fig.cap="Raw data vizualisation (black dots). the vertical dashed line stands for the end of the accumulation phase ($t_c = 1$ day. Exposure concentration equals 1.485 picomol/ml."}
 # Plot the raw data
 ggplot(data = df, aes(x = time, y = conc)) +
   geom_point() +
@@ -47,11 +60,11 @@ ggplot(data = df, aes(x = time, y = conc)) +
   geom_vline(xintercept = 1, linetype="dashed")
 ```
 
-A toxicokinetic (TK) model simply describing bioaccumulation of chemical substances within the whole body of living organisms is based on a set of two differential equations standing for the deterministic part [@Charles2021]:
+A toxicokinetic (TK) model simply describing bioaccumulation of chemical substances within the whole body of living organisms is based on a set of two differential equations standing for the deterministic part [@Ratier2021]:
 
 \begin{subequations}
   \begin{empheq}[left=\empheqlbrace]{align}
-    \frac{dC}{dt}(t) &= k_u \times C_w - k_e \times C(t) \quad \forall \, 0 \leq t \leq t_c \\
+    \frac{dC}{dt}(t) &= k_u \times C_w - k_e \times C(t) \quad \forall \, 0 \leqslant t \leqslant t_c \\
     \frac{dC}{dt}(t) &= - k_e \times C(t) \quad  \forall \, t > t_c 
   \end{empheq}
 \end{subequations}
@@ -61,7 +74,7 @@ where $t_c$ stands for the duration of the accumulation phase (namely the end of
 Given that state variables are concentrations, an appropriate stochastic part to describe the variability of the data around the mean tendency is the Gaussian distribution, so that:
 
 \begin{equation}
-  C_{obs}(t_i) \simeq \mathcal{N}(C(t_i), \sigma)
+  C_{obs}(t_i) \sim \mathcal{N}(C(t_i), \sigma)
 \end{equation}
 
 where $C_{obs}(t_i)$ are the measured internal concentrations at time point $t_i$, $\forall \, i \in 1,n$, with $n$ the total number of time points. Parameter $\sigma$ stands for the standard deviation of the normal distribution.
@@ -81,7 +94,7 @@ kable(tab1)
 
 ## Simulated model
 
-Because the exposure concentration is here considered as constant, equations (1) can be analytically integrated as follows:
+Because the exposure concentration is here considered as constant, equations (1) can be analytically integrated as written below. See [@Charles2021] for details.
 
 \begin{subequations}
   \begin{empheq}[left=\empheqlbrace]{align}
@@ -91,7 +104,7 @@ Because the exposure concentration is here considered as constant, equations (1)
 \end{subequations}
 
 ```{r}
-# Create a function to simulation bioaccumulation
+# Create a function to simulate bioaccumulation
 # along both accumulation and depuration phases
 bioacc <- function(parameters, expw, tc, tmax){
   tacc <- seq(0, tc, length.out = 100)
@@ -113,7 +126,6 @@ ku.mean <- mean(tab1$ku_mean)
 ke.mean <- mean(tab1$ke_mean)
 parameters <- c(ku.mean, ke.mean)
 expw <- unique(df$expw)
-tc <- 1 # duration of the accumulation phase
 tmax <- max(df$time) # final time of the experiment
 ```
 
@@ -122,19 +134,53 @@ tmax <- max(df$time) # final time of the experiment
 simu.mean <- bioacc(parameters, expw, tc, tmax)
 ```
 
-```{r, fig.cap="Simulation of a one-comparment toxicokinetic model with parameters values got from medians in Table 1 of [@Ashauer2010] (solid orange line). Black dots are observed data."}
+```{r, echo=FALSE, fig.cap="Simulation of a one-comparment toxicokinetic model with parameters values got from medians in Table 1 of [@Ashauer2010] (solid orange line). Black dots are observed data."}
 # Plot simulations
 ymax <- max(unique(df$conc)) # maximal observed concentrations
 ggplot(simu.mean, aes(time, conc)) +
   geom_line(col = "orange", size = 1.5) +
   xlab("Time (hours)") +
-  ylab("Internal predicted concentrations") +
+  ylab("Measured internal concentrations") +
   geom_vline(xintercept = 1, linetype="dashed") +
   coord_cartesian(xlim = c(0, tmax), ylim = c(0, ymax)) +
   # Add observed data
   geom_point(data = df, aes(time, conc))
 ```
+
 ### Comparison between data and simulations
+
+```{r}
+# Time points of the accumulation phase
+tacc <- df %>%
+  select(time) %>%
+  filter(time <= tc)
+# Predicted values of the accumulation phase
+tmp <- parameters[1] * expw * (1 - exp(- parameters[2] * tacc)) / parameters[2]
+predacc <- tmp %>%
+  transmute(pred = time) %>%
+  mutate(phase = "accumulation")
+# Time points of the depuration phase
+tdep <- df %>%
+  select(time) %>%
+  filter(time > tc)
+# Predicted values of the depuration phase
+tmp <- parameters[1] * expw * (exp(parameters[2] * (tc - tdep)) - exp(- parameters[2] * tdep))/parameters[2]
+preddep <- tmp %>%
+  transmute(pred = time) %>%
+  mutate(phase = "depuration")
+df <- cbind(df, rbind(predacc, preddep))
+```
+
+```{r, echo=FALSE, fig.cap="Visual Predictive Check"}
+ggplot(data = df, aes(x = conc, y = pred, colour = phase)) +
+  geom_point() +
+  lims(x = c(min(df$conc), max(df$conc)),
+       y = c(min(df$conc), max(df$conc))) +
+  xlab("Measured internal concentrations (picomol/g wet weight)") +
+  ylab("Predicted internal concentrations (picomol/g wet weight)") +
+  geom_abline(slope = 1, intercept = 0) +
+  stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")), color = "black", label.x = 0, label.y = 120, cor.coef.name = "r")
+```
 
 
 ## Persp.1 - option 2
@@ -143,7 +189,7 @@ Given that $k_u$ and $k_e$ parameters were provided with their standard deviatio
 
 As $\sigma$ is expressed in the same unit as the observed concentrations, in first intention, we could assume that $\sigma$ follows a normal distribution of mean and standard deviation equal to the mean and the standard deviation of the observations. Nevertheless, an alternative that would be less computing demanding, could be to fix $\sigma=0.1$ (or any other arbitrary value).
 
-### Pers 1 - option 2 - ficed $\sigma$ 
+### Pers 1 - option 2 - fixed $\sigma$ 
 
 ```{r}
 # Built normal distributions for model parameters
