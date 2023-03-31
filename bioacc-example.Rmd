@@ -1,7 +1,7 @@
 ---
 title: "Three perspectives on modelling for ecological risk assessment"
 subtitle: "A toy example with a simple one-compartment toxicokinetic model"
-author: "Sandrine Charles and Roman Ashauer"
+author: "Contributing authors"
 bibliography: bibtex.bib
 date: "`r Sys.Date()`"
 output:
@@ -25,7 +25,9 @@ library(gridExtra) # functions to work with "grid" graphics,
 # and draw tables.
 library(truncnorm) # use of truncated Normal distributions
 # some easy-to-use functions for creating and customizing 'ggplot2':
-library(ggpubr) 
+library(ggpubr)
+# tools for assessing the goodness-of-fit of a Gaussian non linear models
+library(nlstools)
 ```
 
 ### Abstract
@@ -33,10 +35,14 @@ We provide here a toy example based on the use of a simple one-compartment toxic
 
 # Introduction
 
-Perform calculations under the three perspectives as described within the main document *** to be developed ***
+Perform calculations under the three perspectives as described within the main document
+
+*** to be developed ***
 
 # Case study
-Based on [@Ashauer2010]. Data set on *Gammarus pulex* exposed to Malathion. *** to be developed ***
+Based on [@Ashauer2010]. Data set on *Gammarus pulex* exposed to Malathion. 
+
+*** to be developed ***
 
 ```{r}
 # Load the data set
@@ -51,16 +57,18 @@ tc <- 1
 ntp <- length(unique(df$time))
 ```
 
-```{r, echo=FALSE, fig.cap="Raw data vizualisation (black dots). the vertical dashed line stands for the end of the accumulation phase ($t_c = 1$ day. Exposure concentration equals 1.485 picomol/ml."}
+```{r, fig.cap="Raw data vizualisation (black dots). The vertical dashed line stands for the end of the accumulation phase ($t_c = 1$ day). Exposure concentration equals 1.485 picomol/ml."}
 # Plot the raw data
 ggplot(data = df, aes(x = time, y = conc)) +
   geom_point() +
   xlab("Time (hours)") +
   ylab("Internal measured concentration (picomol/g wet weight)") +
-  geom_vline(xintercept = 1, linetype="dashed")
+  geom_vline(xintercept = 1, linetype="dashed") +
+  ylim(0, 120)
 ```
 
-A toxicokinetic (TK) model simply describing bioaccumulation of chemical substances within the whole body of living organisms is based on a set of two differential equations standing for the deterministic part [@Ratier2021]:
+\newpage
+A toxicokinetic (TK) model simply describing bioaccumulation of chemical substances within the whole body of living organisms is based on a set of two differential equations standing for the deterministic part [@Ratier2021a]:
 
 \begin{subequations}
   \begin{empheq}[left=\empheqlbrace]{align}
@@ -81,9 +89,9 @@ where $C_{obs}(t_i)$ are the measured internal concentrations at time point $t_i
 
 # Perspective 1 - 
 
-Under perspective 1, the idea is to simulate under the model equations (1) and to compare with observed data. In this perspective, we can use the $k_u$ and $k_e$ parameter estimates as provided in Table 1 of [@Ashauer2010]. However, we need to choose one of the two estimates: the one from the Marquardt fit, or the one from the MCMC fit. Note that these estimates are provide as aggregated values (mean $\pm$ standard deviation, and that the estimation of parameter $\sigma$ (equation (2)) is missing.
+Under perspective 1, the idea is to simulate with model equations (1) and to compare with observed data. To do so, we can use $k_u$ and $k_e$ parameter estimates as provided in Table 1 of [@Ashauer2010]. However, we can choose one of the two estimates: the one from the Marquardt fit, or the one from the MCMC fit. Note that these estimates are provided as aggregated values (mean $\pm$ standard deviation), and that the estimation of parameter $\sigma$ is missing.
 
-Then, two simulation options can be considered: option 1, using only mean values for the simulations; option 2: accounting for the uncertainty. This latter raises the question of the probability distribution to consider. Because estimates are provided as means and standard deviations, this invites us to consider a normal distribution for both $k_u$ and $k_e$ parameters.
+Then, two simulation options can be considered: option 1, using only mean values for the simulations; option 2, accounting for the uncertainty. This latter raises the question of the probability distribution to consider. Because estimates are provided as means and standard deviations, this invites us to consider a normal distribution for both $k_u$ and $k_e$ parameters.
 
 Below is a summary table with estimates from [@Ashauer2010] corresponding to the raw data we are dealing with in this document:
 
@@ -134,17 +142,19 @@ tmax <- max(df$time) # final time of the experiment
 simu.mean <- bioacc(parameters, expw, tc, tmax)
 ```
 
-```{r, echo=FALSE, fig.cap="Simulation of a one-comparment toxicokinetic model with parameters values got from medians in Table 1 of [@Ashauer2010] (solid orange line). Black dots are observed data."}
+```{r, fig.cap="Simulation of a one-comparment toxicokinetic model with parameters values got from medians in Table 1 of [@Ashauer2010] (solid orange line). Black dots are observed data."}
 # Plot simulations
 ymax <- max(unique(df$conc)) # maximal observed concentrations
 ggplot(simu.mean, aes(time, conc)) +
   geom_line(col = "orange", size = 1.5) +
   xlab("Time (hours)") +
-  ylab("Measured internal concentrations") +
+  ylab("Internal concentrations") +
   geom_vline(xintercept = 1, linetype="dashed") +
   coord_cartesian(xlim = c(0, tmax), ylim = c(0, ymax)) +
   # Add observed data
-  geom_point(data = df, aes(time, conc))
+  geom_point(data = df, aes(time, conc)) +
+  theme_bw() +
+  ylim(0, 120)
 ```
 
 ### Comparison between data and simulations
@@ -171,7 +181,7 @@ preddep <- tmp %>%
 df <- cbind(df, rbind(predacc, preddep))
 ```
 
-```{r, echo=FALSE, fig.cap="Visual Predictive Check"}
+```{r, fig.cap="Visual Predictive Check comparing observations (x-axis) to prediction (y-axis) for both the accumulation (in red) and the depuration (in blue) phases."}
 ggplot(data = df, aes(x = conc, y = pred, colour = phase)) +
   geom_point() +
   lims(x = c(min(df$conc), max(df$conc)),
@@ -182,23 +192,19 @@ ggplot(data = df, aes(x = conc, y = pred, colour = phase)) +
   stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")), color = "black", label.x = 0, label.y = 120, cor.coef.name = "r")
 ```
 
+## Persp. 1 - option 2
 
-## Persp.1 - option 2
+Given that $k_u$ and $k_e$ parameters were provided with their standard deviations, it is tempting to add uncertainties around the previous mean predicted curve. However, no information is available on parameter $\sigma$ to appropriately characterize the normal distribution of the stochastic part of the model (equation (2)). Without additional information, all parameters will be assumed to be normally distributed. Note also that, in doing as such for simulations, we do not account for any correlation between model parameters.
 
-Given that $k_u$ and $k_e$ parameters were provided with their standard deviations, it is tempting to add uncertainties around the previous mean predicted curve. However, no information is available on parameter $\sigma$ to appropriately characterize the normal distribution of the stochastic part of the model (equation (2)). Without additional information, all parameters will be assumed to be normally distributed. Note also that, in doing as such, we do account for any correlation between model parameters.
+Below are the probability distributions we simulated for both kinetic parameters $k_u$ and $k_e$.
 
-As $\sigma$ is expressed in the same unit as the observed concentrations, in first intention, we could assume that $\sigma$ follows a normal distribution of mean and standard deviation equal to the mean and the standard deviation of the observations. Nevertheless, an alternative that would be less computing demanding, could be to fix $\sigma=0.1$ (or any other arbitrary value).
-
-### Pers 1 - option 2 - fixed $\sigma$ 
-
-```{r}
+```{r, fig.cap="Probability distributions of both kinetic parameters: $k_u$ (left panel) and $k_e$ (right panel)."}
 # Built normal distributions for model parameters
 niter <- 1000 # sampling size in parameter distributions
 ku.sd <- mean(tab1$ku_sd) # ku standard deviation
 ku <- rnorm(niter, ku.mean, ku.sd) # ku distribution
 ke.sd <- mean(tab1$ke_sd) # ke standard deviation
 ke <- rnorm(niter, ke.mean, ke.sd) # ke distribution
-sigma <- 0.1 # 50% of the observed sd
 # Plot the simulated normal distributions
 # for the model parameters ku and ke
 g1 <- ggplot(as.data.frame(ku), aes(ku)) +
@@ -208,45 +214,139 @@ g2 <- ggplot(as.data.frame(ke), aes(ke)) +
 grid.arrange(g1, g2, ncol = 2)
 ```
 
+As $\sigma$ is expressed in the same unit as the observed concentrations, in first intention, we could assume that $\sigma$ follows a normal distribution of mean and standard deviation equal to the mean and standard deviation of the observations. Nevertheless, an alternative that is less computing demanding, is to fix $\sigma$ at any other arbitrary value.
+
+Below are simulations accounting for either only the uncertainty on parameter estimates $k_u$ and $k_e$, or also the stochastic part of the model in addition (namely, using the full model with parameter $\sigma$). The first simulations provide credible intervals around point theoretical values, while the second simulations provide prediction intervals around point theoretical values. We performed simulations with three different fixed value for $\sigma$: $0.1$, $1$ and $10$.
+
 ```{r}
 # Simulation of internal concentrations
 # considering the above probability distributions
 # and a fixed sigma value
-pred <- c()
-for(k in 1:niter){
-  tmp.ku <- sample(ku, 1)
-  tmp.ke <- sample(ke, 1)
-  tmp.theo <- bioacc(parameters = c(tmp.ku, tmp.ke),
-                     expw = expw, tc = 1, tmax = tmax)
-  alea <- rnorm(n = 300, 0, sigma)
-  tmp.pred <- tmp.theo$conc + alea
-  pred <- rbind(pred, c(tmp.ku, tmp.ke, tmp.pred))
-}
-colnames(pred) <- c("ku", "ke", tmp.theo$time)
-Qpred <- t(apply(pred[,3:302], MARGIN = 2,
-               FUN = function(x) quantile(x, probs = c(0.025, 0.5, 0.975))))
-rownames(Qpred) <- NULL
-Qpred <- as.data.frame(Qpred)
-Qpred$time <- tmp.theo$time
-colnames(Qpred) <- c("Lower", "median", "Upper", "time")
+source("simu-sigma.R")
+Qpred.0.1 <- simu(sigma = 0.1) # 50% of the observed sd
+Qpred.1 <- simu(sigma = 1)
+Qpred.10 <- simu(sigma = 10)
 ```
 
 ```{r}
-ggplot(data = Qpred, aes(x = time, y = median)) +
-  geom_ribbon(aes(ymin = Lower, ymax = Upper),
-              col = "orange", linetype = "dashed",
-              fill = "lightgrey") +
-  geom_line(col = "orange", size = 1.25)
+g1 <- ggplot(data = Qpred.0.1, aes(x = time, y = median)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper, fill = type),
+              linetype = "dashed") +
+  geom_line(col = "orange") +
+  theme_bw() +
+  labs(title = "sigma = 0.1") +
+  xlab("Time (hours)") +
+  ylab("Internal concentrations") +
+  # ylim(0, 120) +
+  scale_fill_manual(values = c("gray40", "gray"))
+g2 <- ggplot(data = Qpred.1, aes(x = time, y = median)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper, fill = type),
+              linetype = "dashed") +
+  geom_line(col = "orange") +
+  theme_bw() +
+  labs(title = "sigma = 1") +
+  xlab("Time (hours)") +
+  ylab("Internal concentrations") +
+  # ylim(0, 120) +
+  scale_fill_manual(values = c("gray40", "gray"))
+g3 <- ggplot(data = Qpred.10, aes(x = time, y = median)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper, fill = type),
+              linetype = "dashed") +
+  geom_line(col = "orange") +
+  theme_bw() +
+  labs(title = "sigma = 10") +
+  xlab("Time (hours)") +
+  ylab("Internal concentrations") +
+  # ylim(0, 120) +
+  scale_fill_manual(values = c("gray40", "gray"))
+ggarrange(g1, g2, g3, nrow = 1, ncol = 3, common.legend = TRUE, legend="bottom")
 ```
-
-
-
 
 # Perspective 2
 
+In this section, we fit the one compartment model (equations (2)) under a frequentist framework based on the R function `nls()`, and the R-package `nlstools` that provides a collection of tools to evaluate the goodness-of-fit of Gaussian non linear models [@Baty2015].
+
+## Fit the one compartment model
+
+```{r}
+# Define the model to fit
+model <- as.formula(conc ~ (time <= 1) * (ku/ke) * 1.485 * ( 1 - exp(- ke * time)) + (time > 1) * (ku/ke) * 1.485 * (exp(ke * (1 - time)) - exp(- ke * time)))
+```
+
+
+```{r}
+# Fit the model
+fit <- nls(model, data = df, start = list(ku = ku.mean, ke = ke.mean))
+```
+
+## Summary of parameter estimates
+Below is a summary of parameter estimates with confidence intervals, the residual standard error and the sum of squares, as well as the correlation matrix of the estimates.
+
+```{r}
+overview(fit)
+```
+
+## Fitting vizualization
+The Figure below show the visualization of the fitted curve superimposed on the observations.
+
+```{r, fig.cap="Plot of the data (dependent vs. independent variable) with the fitted model superimposed."}
+par(mar=c(4, 4, 0.2, 0.2))
+plotfit(fit, las = 1, pch.obs = 19, ylim = c(0, 120),
+        smooth = TRUE, col.fit = "orange", lwd = 3,
+        xlab = "Time (hours)", ylab = "Internal concentrations")
+grid()
+```
+
+## Check the residuals
+
+```{r}
+fit.res <- nlsResiduals(fit)
+```
+
+```{r, fig.cap="Plot of residuals: (top left panel) Raw residuals vs. fitted values; (top right panel) Standardized residuals (with mean = 0 and standard deviation = 1) vs. fitted values; (bottom left panel) Autocorrelation plot; (bottom right panel) QQ plot of the standardized residuals."}
+par(mar=c(4, 4, 3, 0.2))
+plot(fit.res)
+```
+
+Figure 5 shows no indication of problems with the model assumptions as the residuals seem to be approximately normally distributed (a clear alignment along the diagonal in the QQ plot) and without evidence of autocorrelation or heteroscedastic variance.
+
+```{r}
+test.nlsResiduals(fit.res)
+```
+
+With this example, the null hypothesis of a normal distribution for the residuals cannot be rejected (Shapiro-Wilk test: $p = 0.27$) but there is an indication of autocorrelation (runs test: $p = 0.00032$).
+
+## Parameter correlations
+
+```{r}
+source("nlsConfRegions.R")
+fit.conf <- nlsConfRegions(fit, exp = 3, length = 2000)
+```
+
+```{r, fig.cap="Projections of the confidence region according to the Beale’s criterion."}
+plot(fit.conf)
+```
+
+The Beale's confidence region between $k_u$ and $k_e$ is perfectly elliptical with a global minimum at the centre [@Beale1960]. This indicates a good non linear regression model fit. Moreover, the narrow elliptic shape of the Beale's confidence region between both kinetic parameters reflects a relatively high correlation (correlation coefficient equals to 0.85).
+
+## Detect influential observations
+
+Both jackknife and bootstrap procedures are implemented in the R-package `nlstools`. By using a leave-one- out procedure, the jackknife procedure provides jackknife parameter estimates together with confidence intervals. It also shows the influence of each observation on each parameter estimate (Figure ).
+
+
+```{r}
+fit.jack <- nlsJack(fit)
+summary(fit.jack)
+```
+
+```{r, fig.cap="Resampling Jackknife procedures showing the influence of each observation on each parameter estimate."}
+plot(fit.jack)
+```
+
+
 # Perspective 3
 
-In the section, we fit the one compartment model (equations (1)) under a Bayesian framework with the R-package `rbioacc` [@Ratier2021]. The same calculation can be easily reproduced on-line with the MOSAIC web platform and its `bioacc` module: \url{https://mosaic.univ-lyon1.fr/bioacc}.
+In this section, we fit the one compartment model (equations (1)) under a Bayesian framework with the R-package `rbioacc` [@Ratier2021]. The same calculation can be easily reproduced on-line with the MOSAIC web platform and its `bioacc` module: \url{https://mosaic.univ-lyon1.fr/bioacc}.
 
 ## Model fitting
 
