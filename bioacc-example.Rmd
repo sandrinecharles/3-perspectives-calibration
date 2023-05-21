@@ -6,14 +6,14 @@ bibliography: bibtex.bib
 date: "`r Sys.Date()`"
 output:
  pdf_document:
-    extra_dependencies: ["empheq", "etoolbox"]
+    extra_dependencies: ["empheq", "etoolbox", "textcomp"]
  keep_tex: true
 ---
 
 ```{r setup, include=FALSE}
 rm(list = ls())
 library(knitr)
-opts_chunk$set(echo = TRUE, comment = "", warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, comment = "", warning = FALSE, message = FALSE)
 # Load required packages
 library(tidyverse) # encompass several useful packages to:
 # data import, tidying, manipulation, visualisation, and programming
@@ -40,7 +40,11 @@ Perform calculations under the three perspectives as described within the main d
 *** to be developed ***
 
 # Case study
-Based on [@Ashauer2010]. Data set on *Gammarus pulex* exposed to Malathion. 
+Raw data, extracted from [@Ashauer2010], concern the  freshwater arthropod *Gammarus pulex* exposed to the organo-phosphate insecticide Malathion (CAS number 121-75-5), which acts as an acetyl-cholinesterase inhibitor. Raw data are plotted in Figure \@ref(fig:rawdata).
+
+*G. pulex* organisms were collected in a small headwater stream near Z$\ddot u$rich in Switzerland, and acclimatized during about five days under conditions similar to those of the bioaccumulation tests. Organisms were fed *ad libitum* with horse chestnut leaf disks inoculated with *Cladosporium herbarum*. The average wet weight was 32.37 mg ($\pm 16.88$ mg SD, $n = 1040$). The sex ratio was assumed equal to 0.5.
+
+Toxicokinetic experiments consisted of a 24-h uptake phase during which the organisms were exposed to the compound and a 6-d elimination phase starting with the transfer of organisms to fresh media without compound. A total of 20 G. pulex organisms were placed in each of the five replicate treated beakers and the solvent control beaker
 
 *** to be developed ***
 
@@ -57,7 +61,7 @@ tc <- 1
 ntp <- length(unique(df$time))
 ```
 
-```{r, fig.cap="Raw data vizualisation (black dots). The vertical dashed line stands for the end of the accumulation phase ($t_c = 1$ day). Exposure concentration equals 1.485 picomol/ml."}
+```{r fig:rawdata, fig.cap="Raw data vizualisation (black dots). The vertical dashed line stands for the end of the accumulation phase ($t_c = 1$ day). Exposure concentration equals 1.485 picomol/ml."}
 # Plot the raw data
 ggplot(data = df, aes(x = time, y = conc)) +
   geom_point() +
@@ -68,7 +72,7 @@ ggplot(data = df, aes(x = time, y = conc)) +
 ```
 
 \newpage
-A toxicokinetic (TK) model simply describing bioaccumulation of chemical substances within the whole body of living organisms is based on a set of two differential equations standing for the deterministic part [@Ratier2021a]:
+A toxicokinetic (TK) model simply describing bioaccumulation of chemical substances within the whole body of living organisms is based on a set of two differential equations standing for the deterministic part [@Charles2021]:
 
 \begin{subequations}
   \begin{empheq}[left=\empheqlbrace]{align}
@@ -89,7 +93,7 @@ where $C_{obs}(t_i)$ are the measured internal concentrations at time point $t_i
 
 # Perspective 1 - 
 
-Under perspective 1, the idea is to simulate with model equations (1) and to compare with observed data. To do so, we can use $k_u$ and $k_e$ parameter estimates as provided in Table 1 of [@Ashauer2010]. However, we can choose one of the two estimates: the one from the Marquardt fit, or the one from the MCMC fit. Note that these estimates are provided as aggregated values (mean $\pm$ standard deviation), and that the estimation of parameter $\sigma$ is missing.
+Under perspective 1, the idea is to simulate the toxicokinetic process with model equations (1) and to compare the simulated curve with observed data. To do so, we can use $k_u$ and $k_e$ parameter estimates as provided in Table 1 of [@Ashauer2010]. However, we can choose one of the two estimates: the one from the Marquardt fit, or the one from the MCMC fit. Note that these estimates are provided as aggregated values (mean $\pm$ standard deviation), and that the estimation of parameter $\sigma$ is missing.
 
 Then, two simulation options can be considered: option 1, using only mean values for the simulations; option 2, accounting for the uncertainty. This latter raises the question of the probability distribution to consider. Because estimates are provided as means and standard deviations, this invites us to consider a normal distribution for both $k_u$ and $k_e$ parameters.
 
@@ -194,7 +198,7 @@ ggplot(data = df, aes(x = conc, y = pred, colour = phase)) +
 
 ## Persp. 1 - option 2
 
-Given that $k_u$ and $k_e$ parameters were provided with their standard deviations, it is tempting to add uncertainties around the previous mean predicted curve. However, no information is available on parameter $\sigma$ to appropriately characterize the normal distribution of the stochastic part of the model (equation (2)). Without additional information, all parameters will be assumed to be normally distributed. Note also that, in doing as such for simulations, we do not account for any correlation between model parameters.
+Given that $k_u$ and $k_e$ parameters were provided as means and standard deviations, it is tempting to add uncertainties around the previous mean predicted curve. However, no information is available on parameter $\sigma$ to appropriately characterize the normal distribution of the stochastic part of the model (equation (2)). Without additional information, all parameters will be assumed to be normally distributed. Note also that, in doing as such for simulations, we do not account for any correlation between model parameters.
 
 Below are the probability distributions we simulated for both kinetic parameters $k_u$ and $k_e$.
 
@@ -264,7 +268,7 @@ ggarrange(g1, g2, g3, nrow = 1, ncol = 3, common.legend = TRUE, legend="bottom")
 
 # Perspective 2
 
-In this section, we fit the one compartment model (equations (2)) under a frequentist framework based on the R function `nls()`, and the R-package `nlstools` that provides a collection of tools to evaluate the goodness-of-fit of Gaussian non linear models [@Baty2015].
+In this section, we fit the one compartment model (equations (2)) under a frequentist framework based on the R function `nls()` of the R software, and the R-package `nlstools` that provides a collection of tools to evaluate the goodness-of-fit of Gaussian non linear models [@Baty2015].
 
 ## Fit the one compartment model
 
@@ -287,7 +291,7 @@ overview(fit)
 ```
 
 ## Fitting vizualization
-The Figure below show the visualization of the fitted curve superimposed on the observations.
+The Figure below shows the visualization of the fitted curve superimposed to the observations.
 
 ```{r, fig.cap="Plot of the data (dependent vs. independent variable) with the fitted model superimposed."}
 par(mar=c(4, 4, 0.2, 0.2))
@@ -308,7 +312,7 @@ par(mar=c(4, 4, 3, 0.2))
 plot(fit.res)
 ```
 
-Figure 5 shows no indication of problems with the model assumptions as the residuals seem to be approximately normally distributed (a clear alignment along the diagonal in the QQ plot) and without evidence of autocorrelation or heteroscedastic variance.
+Figure 5 does not underline any problem with the model assumptions: residuals seem to be approximately normally distributed (a clear alignment along the diagonal in the QQ plot), without evidence of autocorrelation or heteroscedastic variance.
 
 ```{r}
 test.nlsResiduals(fit.res)
@@ -346,7 +350,7 @@ plot(fit.jack)
 
 # Perspective 3
 
-In this section, we fit the one compartment model (equations (1)) under a Bayesian framework with the R-package `rbioacc` [@Ratier2021]. The same calculation can be easily reproduced on-line with the MOSAIC web platform and its `bioacc` module: \url{https://mosaic.univ-lyon1.fr/bioacc}.
+In this section, we fit the one compartment model (equations (1)) under a Bayesian framework with the R-package `rbioacc` [@rbioacc2021]. The same calculation can be easily reproduced on-line with the MOSAIC web platform and its `bioacc` module: \url{https://mosaic.univ-lyon1.fr/bioacc}.
 
 ## Model fitting
 
