@@ -30,23 +30,18 @@ library(ggpubr)
 library(nlstools)
 ```
 
-### Abstract
-We provide here a toy example based on the use of a simple one-compartment toxicokinetic model to describe the bioaccumulation of chemical substances within the whole body of living organisms. From a simple ODE model, we will illustrate : (P1) how to simulate both accumulation and depuration phases under constant exposure and to compare model outputs to observed data; (P2) how to fit such a model on data without using any prior information on the model (Frequentist point of view); (3) how to benefit of prior information in combination with knowledge in data to update the calibration results (Bayesian point of view).
-
 # Introduction
 
-Perform calculations under the three perspectives as described within the main document
+In this document, we performed illustrative calculations under the three perspectives as described within the main document. We chose the simple one-compartment toxicokinetic model to describe the bioaccumulation of chemical substances within the whole body of living organisms. We chose this model for its simple writing, as a differential equation that can be analytically integrated under a constant exposure context, but also because data can easily be found to compare with simulation [@Ratier2021b].
 
-*** to be developed ***
+In the three following parts, we will illustrate : (P1) how to simulate both accumulation and depuration phases under constant exposure and to compare model outputs to observed data; (P2) how to fit such a model on data without using any prior information on the model (Frequentist point of view); (P3) how to benefit of prior information in combination with knowledge in data to update the calibration results (Bayesian point of view).
 
 # Case study
 Raw data, extracted from [@Ashauer2010], concern the  freshwater arthropod *Gammarus pulex* exposed to the organo-phosphate insecticide Malathion (CAS number 121-75-5), which acts as an acetyl-cholinesterase inhibitor. Raw data are plotted in Figure \@ref(fig:rawdata).
 
 *G. pulex* organisms were collected in a small headwater stream near Z$\ddot u$rich in Switzerland, and acclimatized during about five days under conditions similar to those of the bioaccumulation tests. Organisms were fed *ad libitum* with horse chestnut leaf disks inoculated with *Cladosporium herbarum*. The average wet weight was 32.37 mg ($\pm 16.88$ mg SD, $n = 1040$). The sex ratio was assumed equal to 0.5.
 
-Toxicokinetic experiments consisted of a 24-h uptake phase during which the organisms were exposed to the compound and a 6-d elimination phase starting with the transfer of organisms to fresh media without compound. A total of 20 G. pulex organisms were placed in each of the five replicate treated beakers and the solvent control beaker
-
-*** to be developed ***
+Toxicokinetic experiments consisted of a 24-h uptake phase during which the organisms were exposed to the compound and a 6-d elimination phase starting with the transfer of organisms to fresh media without compound. A total of 20 *G. pulex* organisms were placed in each of the five replicate treated beakers and the solvent control beaker.
 
 ```{r}
 # Load the data set
